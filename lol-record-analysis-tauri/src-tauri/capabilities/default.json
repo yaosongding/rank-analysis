@@ -7,6 +7,7 @@
     "core:default",
     "opener:default",
     "core:webview:allow-create-webview-window",
+    "core:webview:allow-set-webview-zoom",
     "core:window:allow-create",
     "core:window:allow-minimize",
     "core:window:allow-maximize",
@@ -31,6 +32,8 @@
       ]
     },
     "mcp-bridge:default",
-    "sentry:default"
+    "sentry:default",
+    "dialog:allow-open",
+    "dialog:allow-save"
   ]
 }

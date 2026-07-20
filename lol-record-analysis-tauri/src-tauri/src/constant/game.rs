@@ -85,16 +85,22 @@ pub static QUEUE_ID_TO_CN: phf::Map<u32, &'static str> = phf_map! {
     480u32 => "快速匹配",
     490u32 => "匹配",
     700u32 => "冠军杯赛",
-    830u32 => "人机",
-    840u32 => "人机",
-    850u32 => "人机",
-    870u32 => "人机",
-    880u32 => "人机",
-    890u32 => "人机",
+    // 人机（合作对抗 AI）：830/840/850 为旧版队列（7.19 版本弃用，仅存在于老战绩），
+    // 870/880/890 为现行 ID，难度一一对应（入门/新手/一般）；
+    // 旧队列不单独标注，缺省共用同难度中文名，筛选经 queue_ids_same_group 按名称分组匹配
+    830u32 => "人机(入门)",
+    840u32 => "人机(新手)",
+    850u32 => "人机(一般)",
+    870u32 => "人机(入门)",
+    880u32 => "人机(新手)",
+    890u32 => "人机(一般)",
     900u32 => "无限乱斗",
     1700u32 => "斗魂竞技场",
     1900u32 => "无限火力",
     2400u32 => "海克斯乱斗",
+    // LCU /lol-game-queues 里 2410 的官方描述为「海克斯大乱斗 锦标赛」，
+    // 是 2400 的锦标赛变体队列，缺映射会导致整页模式显示「未知」
+    2410u32 => "海克斯乱斗(锦标赛)",
     3140u32 => "训练模式",
     0u32 => "其他",
 };
@@ -387,4 +393,104 @@ pub fn get_queue_type_to_cn(key: &str) -> Option<&'static str> {
 
 pub fn get_queue_id_to_cn(key: u32) -> Option<&'static str> {
     QUEUE_ID_TO_CN.get(&key).copied()
+}
+
+/// 同玩法多队列 ID 的规范化映射：别名 ID → 该组的「代表 ID」。
+///
+/// 分组语义的唯一来源。此前分组靠 [`QUEUE_ID_TO_CN`] 中文名字符串相等判定，
+/// 显示文案与筛选语义被绑死——改名/消歧义/本地化任一中文名都会静默改变
+/// 战绩筛选和标签统计的分组结果，且无编译期信号。现在显示名只管显示，
+/// 新增别名队列时在这里加一行即可。
+///
+/// 只收录别名队列，未收录的 ID 自成一组。代表 ID 取每组最小值，
+/// 与模式下拉选项去重后保留的 ID 一致（见 `get_game_modes`）。
+pub static QUEUE_ID_CANONICAL: phf::Map<u32, u32> = phf_map! {
+    // 匹配：430 旧版 / 490 现行（快速对局）
+    490u32 => 430u32,
+    // 人机（合作对抗 AI）：830/840/850 为 7.19 弃用的旧队列（仅存在于老战绩），
+    // 870/880/890 为现行 ID，难度一一对应（入门/新手/一般）
+    870u32 => 830u32,
+    880u32 => 840u32,
+    890u32 => 850u32,
+};
+
+/// 队列 ID 的分组代表 ID（非别名 ID 返回自身）
+pub fn canonical_queue_id(id: u32) -> u32 {
+    QUEUE_ID_CANONICAL.get(&id).copied().unwrap_or(id)
+}
+
+/// 判断两个队列 ID 是否属于同一模式分组（规范化后相等）。
+///
+/// 模式筛选的下拉选项按分组去重后只保留代表 ID，过滤对局时必须按分组
+/// 匹配，否则只能命中代表 ID 对应的那一个队列。
+pub fn queue_ids_same_group(a: u32, b: u32) -> bool {
+    canonical_queue_id(a) == canonical_queue_id(b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn same_id_should_match() {
+        assert!(queue_ids_same_group(420, 420));
+    }
+
+    #[test]
+    fn bot_queues_same_difficulty_should_be_same_group() {
+        // 新旧两代人机队列同难度中文名相同，应视为同组
+        assert!(queue_ids_same_group(830, 870)); // 入门
+        assert!(queue_ids_same_group(840, 880)); // 新手
+        assert!(queue_ids_same_group(850, 890)); // 一般
+    }
+
+    #[test]
+    fn different_modes_should_not_match() {
+        assert!(!queue_ids_same_group(420, 440));
+        assert!(!queue_ids_same_group(830, 420));
+        // 不同难度的人机不属于同组
+        assert!(!queue_ids_same_group(840, 890));
+    }
+
+    #[test]
+    fn unknown_ids_should_only_match_exactly() {
+        assert!(!queue_ids_same_group(999999, 830));
+        assert!(queue_ids_same_group(999999, 999999));
+    }
+
+    #[test]
+    fn canonical_maps_alias_to_representative() {
+        assert_eq!(canonical_queue_id(490), 430);
+        assert_eq!(canonical_queue_id(870), 830);
+        assert_eq!(canonical_queue_id(880), 840);
+        assert_eq!(canonical_queue_id(890), 850);
+    }
+
+    #[test]
+    fn canonical_keeps_non_alias_ids() {
+        assert_eq!(canonical_queue_id(420), 420);
+        assert_eq!(canonical_queue_id(450), 450);
+        assert_eq!(canonical_queue_id(999999), 999999);
+    }
+
+    /// 分组语义不再依赖中文名：每个别名的代表 ID 必须也在 CN 表里有名字，
+    /// 且代表自身不得再是别名（防止链式映射）。
+    #[test]
+    fn canonical_representatives_are_terminal_and_named() {
+        for (alias, rep) in QUEUE_ID_CANONICAL.entries() {
+            assert!(
+                QUEUE_ID_CANONICAL.get(rep).is_none(),
+                "代表 {rep} 自身不能是别名（来自 {alias}）"
+            );
+            assert!(
+                QUEUE_ID_TO_CN.get(rep).is_some(),
+                "代表 {rep} 缺少中文名（来自 {alias}）"
+            );
+        }
+    }
+
+    #[test]
+    fn matched_queues_430_490_are_same_group() {
+        assert!(queue_ids_same_group(430, 490));
+    }
 }

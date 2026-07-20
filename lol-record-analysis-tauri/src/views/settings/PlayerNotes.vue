@@ -2,10 +2,10 @@
   <n-space vertical :size="12">
     <n-card title="我标记过的人" size="small">
       <template #header-extra>
-        <n-text :depth="3" style="font-size: 12px"> 共 {{ store.count }} 人 </n-text>
+        <n-text :depth="3" style="font-size: var(--font-size-sm)"> 共 {{ store.count }} 人 </n-text>
       </template>
 
-      <n-alert type="default" :bordered="false" style="margin-bottom: 12px">
+      <n-alert type="default" :bordered="false" style="margin-bottom: var(--space-12)">
         <template #icon>
           <n-icon><InformationCircleOutline /></n-icon>
         </template>
@@ -92,7 +92,7 @@ const columns = computed<DataTableColumns<Row>>(() => [
     type: 'expand',
     expandable: row => (row.encounters?.length ?? 0) > 0,
     renderExpand: row =>
-      h('div', { style: 'padding:4px 0 8px' }, [
+      h('div', { style: 'padding:var(--space-4) 0 var(--space-8)' }, [
         h(MettingPlayersCard, { meetGames: row.encounters ?? [] })
       ])
   },
@@ -112,15 +112,28 @@ const columns = computed<DataTableColumns<Row>>(() => [
   {
     title: '玩家',
     key: 'gameName',
+    // 固定最小宽度 + tag 禁止折行：否则窄窗口下 #12345 会在数字中间断行
+    minWidth: 200,
     render(row) {
-      return h('div', { style: 'display:flex;align-items:baseline;gap:2px;min-width:0' }, [
-        h(
-          NEllipsis,
-          { style: 'max-width:160px;font-weight:600' },
-          { default: () => row.gameName || '(未知)' }
-        ),
-        h('span', { style: 'color:var(--text-tertiary);font-size:12px' }, `#${row.tagLine}`)
-      ])
+      return h(
+        'div',
+        { style: 'display:flex;align-items:baseline;gap:var(--space-2);min-width:0' },
+        [
+          h(
+            NEllipsis,
+            { style: 'max-width:220px;font-weight:600' },
+            { default: () => row.gameName || '(未知)' }
+          ),
+          h(
+            'span',
+            {
+              style:
+                'color:var(--text-tertiary);font-size:var(--font-size-sm);white-space:nowrap;flex:none'
+            },
+            `#${row.tagLine}`
+          )
+        ]
+      )
     }
   },
   {
@@ -128,7 +141,7 @@ const columns = computed<DataTableColumns<Row>>(() => [
     key: 'note',
     render(row) {
       if (!row.note) return h('span', { style: 'color:var(--text-tertiary)' }, '—')
-      return h(NEllipsis, { style: 'max-width:240px' }, { default: () => row.note })
+      return h(NEllipsis, { style: 'max-width:360px' }, { default: () => row.note })
     }
   },
   {
@@ -152,7 +165,7 @@ const columns = computed<DataTableColumns<Row>>(() => [
     key: 'actions',
     width: 110,
     render(row) {
-      return h('div', { style: 'display:flex;align-items:center;gap:8px' }, [
+      return h('div', { style: 'display:flex;align-items:center;gap:var(--space-8)' }, [
         h(PlayerNoteBadge, {
           puuid: row.puuid,
           gameName: row.gameName,

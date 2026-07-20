@@ -55,6 +55,15 @@ pub struct OnePlayer {
     /// CHERRY 模式下的 lobby 阶段编号；同 ID 的玩家是同小队（仅作弱信号，最终以 stats.playerSubteamId 为准）
     #[serde(default)]
     pub team_participant_id: i32,
+    /// 选人状态："none"|"intent"|"picking"|"locked"；非选人阶段为空字符串
+    #[serde(default)]
+    pub pick_state: String,
+    /// 本局官方分配分路（LCU 小写命名 top/jungle/middle/bottom/utility）。
+    /// 仅选人期从 champ-select 会话的 my_team 带入（敌方 LCU 恒为空）；
+    /// gameflow 会话本身无此字段，非选人期为空字符串。
+    /// 与 `selected_position` 分开：后者参与队伍排序，这个只透传给 AI 分析用。
+    #[serde(default)]
+    pub assigned_position: String,
 }
 
 impl Session {

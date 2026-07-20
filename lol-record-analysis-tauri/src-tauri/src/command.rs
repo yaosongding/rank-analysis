@@ -39,11 +39,13 @@
 
 pub mod ai;
 pub mod asset;
+pub mod cloud_sync;
 pub mod config;
 pub mod fandom;
 pub mod info;
 pub mod launcher;
 pub mod match_history;
+pub mod opgg;
 pub mod rank;
 pub mod rule_config;
 pub mod session;

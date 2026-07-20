@@ -43,12 +43,17 @@
 
       <n-flex vertical class="record-card-queue-block">
         <span class="font-number record-card-queue">{{ games.queueName }}</span>
-        <span class="record-card-meta">
-          <n-icon class="record-card-meta-icon">
-            <CalendarNumber />
-          </n-icon>
-          {{ formattedDate }}
-        </span>
+        <n-tooltip trigger="hover" placement="top">
+          <template #trigger>
+            <span class="record-card-meta">
+              <n-icon class="record-card-meta-icon">
+                <CalendarNumber />
+              </n-icon>
+              {{ formattedDate }}
+            </span>
+          </template>
+          {{ fullDateTime }}
+        </n-tooltip>
       </n-flex>
 
       <n-flex justify="space-between" vertical class="record-card-kda-block">
@@ -163,7 +168,7 @@
       <div class="record-card-stats-block">
         <StatDots
           :icon="FlameOutline"
-          tooltip="对英雄伤害占比"
+          tooltip="对英雄伤害 · 百分比 = 占全队伤害的比例"
           :color="otherColor(games.participants[0].stats?.damageDealtToChampionsRate, isDark)"
           :icon-background="isDark ? 'rgba(229, 167, 50, 0.18)' : 'rgba(229, 167, 50, 0.14)'"
           :value="
@@ -173,7 +178,7 @@
         />
         <StatDots
           :icon="ShieldOutline"
-          tooltip="承伤占比"
+          tooltip="承受伤害 · 百分比 = 占全队承伤的比例"
           :color="healColorAndTaken(games.participants[0].stats?.damageTakenRate, isDark)"
           :icon-background="isDark ? 'rgba(92, 163, 234, 0.2)' : 'rgba(92, 163, 234, 0.12)'"
           :value="formatCompactNumber(games.participants[0].stats?.totalDamageTaken ?? 0)"
@@ -181,7 +186,7 @@
         />
         <StatDots
           :icon="HeartOutline"
-          tooltip="治疗占比"
+          tooltip="治疗量 · 百分比 = 占全队治疗的比例"
           :color="healColorAndTaken(games.participants[0].stats?.healRate, isDark)"
           :icon-background="isDark ? 'rgba(88, 182, 109, 0.2)' : 'rgba(88, 182, 109, 0.14)'"
           :value="formatCompactNumber(games.participants[0].stats?.totalHeal ?? 0)"
@@ -325,6 +330,9 @@ const formattedDate = computed(() => {
   return `${month}/${day}`
 })
 
+/** 完整开局时间（hover 展示）：MM/DD 无法区分同日多局，也缺年份 */
+const fullDateTime = computed(() => new Date(props.games.gameCreationDate).toLocaleString())
+
 const currentPlayerKey = computed(() => {
   const p = props.games.participantIdentities[0].player
   return `${p.gameName}#${p.tagLine}`
@@ -412,6 +420,8 @@ function openDetail() {
     var(--glass-bg-mid) !important;
 }
 
+/* 浅色：底必须是白纸（bg-elevated）而非灰玻璃——灰底叠胜负色渐变会发浊，
+   白底上的色彩 wash 才干净（同报纸彩色套印的道理） */
 .theme-light .record-card-win {
   background:
     linear-gradient(
@@ -419,7 +429,7 @@ function openDetail() {
       color-mix(in srgb, var(--semantic-win) 7%, transparent),
       transparent 55%
     ),
-    var(--glass-bg-mid) !important;
+    var(--bg-elevated) !important;
 }
 
 .theme-light .record-card-loss {
@@ -429,7 +439,20 @@ function openDetail() {
       color-mix(in srgb, var(--semantic-loss) 6%, transparent),
       transparent 55%
     ),
-    var(--glass-bg-mid) !important;
+    var(--bg-elevated) !important;
+}
+
+/* 浅色：卡内嵌套容器（指标盒/队伍胶囊）用白色 scrim 而非灰玻璃——
+   灰色压在胜负色调的卡面上是「脏」感的主要来源；白 scrim 读作磨砂纸层。
+   另外内嵌层不该有投影（海拔语法：只有卡片本体浮起） */
+.theme-light .record-card-stats-block {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(20, 30, 35, 0.07);
+  box-shadow: none;
+}
+
+.theme-light .record-card-teams .n-tag {
+  background-color: rgba(255, 255, 255, 0.6);
 }
 
 .record-card:hover {
@@ -528,11 +551,11 @@ function openDetail() {
   left: -3px;
   bottom: -3px;
   display: inline-block;
-  padding: 0 5px;
+  padding: 0 var(--space-4);
   height: 12px;
   font-weight: 800;
   font-style: italic;
-  font-size: 8px;
+  font-size: var(--font-size-3xs);
   line-height: 12px;
   letter-spacing: 0.03em;
   text-align: center;
@@ -585,7 +608,7 @@ function openDetail() {
 
 .record-card-kda-assist {
   /* 助攻金色：#b8860b 在暗底几乎不可读，提亮一档 */
-  color: #d19a2f;
+  color: var(--accent-gold-deep);
 }
 
 /* 分隔符淡化：让三个数字成为主角（详情页同款纪律） */
@@ -598,7 +621,7 @@ function openDetail() {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: var(--space-4) var(--space-8) 5px;
+  padding: var(--space-4) var(--space-8);
   background: var(--glass-bg-low);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
@@ -610,14 +633,14 @@ function openDetail() {
 .record-card-teams {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
   justify-content: center;
 }
 
 /* === 装备/技能 图标槽（2px 缝隙缓解密压感） === */
 .record-card-item-slots,
 .record-card-spell-icons {
-  gap: 2px;
+  gap: var(--space-2);
 }
 
 .record-card-item-slots :deep(.n-image),

@@ -21,8 +21,8 @@
         <n-icon :size="18"><GameControllerOutline /></n-icon>
         <span class="nav-item-label">对局</span>
       </button>
+      <!-- 设置不依赖 LCU 连接，未连接（Loading 页）时也保持可见可进 -->
       <button
-        v-if="!!mySummoner?.gameName"
         type="button"
         class="nav-item"
         :class="{ 'nav-item--active': getFirstPath(router.currentRoute.value.path) === 'Settings' }"
@@ -100,10 +100,13 @@ watch(
 )
 
 function handleMenuClick(key: string) {
-  // 跳转到对应路由
+  // 跳转到对应路由；未连接时（如从 Loading 页进设置）没有召唤师信息，不带 name
+  // 参数，避免生成 "undefined#undefined" 的脏 query
   router.push({
     name: key,
-    query: { name: mySummoner.value.gameName + '#' + mySummoner.value.tagLine }
+    query: mySummoner.value?.gameName
+      ? { name: mySummoner.value.gameName + '#' + mySummoner.value.tagLine }
+      : undefined
   })
 }
 
@@ -140,7 +143,7 @@ const goGaming = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 0 4px;
+  padding: var(--space-6) 0 var(--space-4);
   overflow: hidden;
 }
 
@@ -148,16 +151,16 @@ const goGaming = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-2);
   flex: 1;
   width: 100%;
-  padding: 0 8px;
+  padding: 0 var(--space-8);
 }
 
 .nav-item {
   width: 100%;
   height: 44px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -166,7 +169,7 @@ const goGaming = () => {
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-size-3xs);
   font-weight: 500;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -180,7 +183,7 @@ const goGaming = () => {
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--glass-bg-mid);
   color: var(--text-secondary);
   transform: scale(1.04);
 }
@@ -191,10 +194,16 @@ const goGaming = () => {
 }
 
 .nav-item--active {
-  background: rgba(61, 155, 122, 0.14);
+  background: color-mix(in srgb, var(--semantic-win) 14%, transparent);
   color: var(--semantic-win);
-  border-color: rgba(61, 155, 122, 0.2);
-  box-shadow: 0 0 12px rgba(61, 155, 122, 0.15);
+  border-color: color-mix(in srgb, var(--semantic-win) 20%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--semantic-win) 15%, transparent);
+}
+
+/* 键盘聚焦时让位给全局 focus ring，激活态描边/辉光暂时退场，避免双环 */
+.nav-item--active:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 /* Active indicator — INSIDE the button, NOT bleeding outside */
@@ -206,30 +215,30 @@ const goGaming = () => {
   transform: translateY(-50%);
   width: 3px;
   height: 18px;
-  background: linear-gradient(180deg, #5ecfa4, #2d7a5e);
-  border-radius: 0 3px 3px 0;
-  box-shadow: 0 0 8px rgba(61, 155, 122, 0.4);
+  background: var(--win-bar-gradient);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--semantic-win) 40%, transparent);
 }
 
 .nav-item-label {
-  font-size: 9px;
+  font-size: var(--font-size-3xs);
 }
 
 /* Status icons */
 .status-icons {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0 8px;
+  gap: var(--space-2);
+  padding: 0 var(--space-8);
   width: 100%;
   flex-shrink: 0;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-6);
 }
 
 .status-icon-btn {
   width: 100%;
   height: 28px;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -245,7 +254,7 @@ const goGaming = () => {
 }
 
 .status-icon-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--glass-bg-mid);
   color: var(--text-secondary);
 }
 
@@ -255,13 +264,13 @@ const goGaming = () => {
 }
 
 .status-icon-btn--on {
-  background: rgba(61, 155, 122, 0.12);
+  background: color-mix(in srgb, var(--semantic-win) 12%, transparent);
   color: var(--semantic-win);
 }
 
 .status-icon-btn--blue {
-  background: rgba(56, 189, 248, 0.1);
-  color: #38bdf8;
+  background: color-mix(in srgb, var(--accent-sky) 10%, transparent);
+  color: var(--accent-sky);
 }
 
 .status-dot {
@@ -275,14 +284,14 @@ const goGaming = () => {
 }
 
 .status-dot--green {
-  background: #4ade80;
-  box-shadow: 0 0 5px rgba(74, 222, 128, 0.6);
+  background: var(--semantic-win-bright);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--semantic-win-bright) 60%, transparent);
   animation: dot-pulse 2s ease-in-out infinite;
 }
 
 .status-dot--blue {
-  background: #38bdf8;
-  box-shadow: 0 0 5px rgba(56, 189, 248, 0.5);
+  background: var(--accent-sky);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--accent-sky) 50%, transparent);
   animation: dot-pulse 2s ease-in-out infinite;
 }
 
@@ -293,39 +302,37 @@ const goGaming = () => {
 
 /* LIGHT THEME */
 .theme-light .nav-item:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--glass-bg-high);
 }
 
 .theme-light .status-icon-btn:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--glass-bg-high);
 }
 
 .theme-light .nav-item--active {
-  background: rgba(45, 138, 108, 0.12);
-  border-color: rgba(45, 138, 108, 0.18);
+  background: color-mix(in srgb, var(--semantic-win) 12%, transparent);
+  border-color: color-mix(in srgb, var(--semantic-win) 18%, transparent);
+}
+
+.theme-light .nav-item--active:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .theme-light .nav-item--active::before {
-  background: linear-gradient(180deg, #0d9668, #2d8a6c);
-  box-shadow: 0 0 6px rgba(45, 138, 108, 0.3);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--semantic-win) 30%, transparent);
 }
 
 .theme-light .status-icon-btn--on {
-  background: rgba(45, 138, 108, 0.1);
-}
-
-.theme-light .status-icon-btn--blue {
-  background: rgba(2, 132, 199, 0.1);
-  color: #0369a1;
+  background: color-mix(in srgb, var(--semantic-win) 10%, transparent);
 }
 
 .theme-light .status-dot--green {
-  background: #0d9668;
-  box-shadow: 0 0 4px rgba(13, 150, 104, 0.4);
+  background: var(--semantic-win);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--semantic-win-bright) 40%, transparent);
 }
 
 .theme-light .status-dot--blue {
-  background: #0284c7;
-  box-shadow: 0 0 4px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--accent-sky) 35%, transparent);
 }
 </style>

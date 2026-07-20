@@ -11,6 +11,7 @@
       </div>
 
       <!-- Compact Content -->
+      <!-- 该模式 0 场时显示中性「暂无」——0 红字会被误读成惨烈战绩（实际是没打过） -->
       <div v-if="!showStats" class="stats-compact" @click="showStats = true">
         <div class="compact-row">
           <span class="label">模式</span>
@@ -18,14 +19,20 @@
         </div>
         <div class="compact-row">
           <span class="label">KDA</span>
-          <span class="value" :style="{ color: kdaColor(recent.kda, isDark) }">
-            {{ recent.kda }}
+          <span
+            class="value"
+            :style="hasGames ? { color: kdaColor(recent.kda, isDark) } : undefined"
+          >
+            {{ hasGames ? recent.kda : '—' }}
           </span>
         </div>
         <div class="compact-row">
           <span class="label">胜率</span>
-          <span class="value" :style="{ color: winRateColor(selectWinRate, isDark) }">
-            {{ selectWinRate }}%
+          <span
+            class="value"
+            :style="hasGames ? { color: winRateColor(selectWinRate, isDark) } : undefined"
+          >
+            {{ hasGames ? `${selectWinRate}%` : '暂无' }}
           </span>
         </div>
       </div>
@@ -98,6 +105,11 @@ const props = defineProps<{
 const showStats = ref(false)
 
 const selectWinRate = computed(() => winRate(props.recent.selectWins, props.recent.selectLosses))
+
+/** 当前统计模式下是否打过对局：0 场时 KDA/胜率显示中性占位而非红色 0 */
+const hasGames = computed(
+  () => (props.recent.selectWins ?? 0) + (props.recent.selectLosses ?? 0) > 0
+)
 </script>
 
 <style scoped>
@@ -124,9 +136,11 @@ const selectWinRate = computed(() => winRate(props.recent.selectWins, props.rece
   width: 240px;
   z-index: 100;
   background: var(--bg-elevated);
-  /* 半透明 win 色描边，强调激活态；alpha 自定义保留 rgba */
-  border-color: rgba(61, 155, 122, 0.25);
-  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--semantic-win) 25%, transparent);
+  /* 外圈 2px 底色"暗缝"把浮层从下方内容里切出来，再叠常规投影 */
+  box-shadow:
+    0 0 0 2px var(--bg-base),
+    var(--shadow-lg);
 }
 
 .stats-header {

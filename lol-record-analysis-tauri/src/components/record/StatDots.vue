@@ -1,38 +1,33 @@
+<!-- tooltip 触发区是整行而非 18px 小图标：数值/百分比含义不直观，hover 哪里都该有解释。
+     注释放模板外：dev 下模板根层级的注释会保留成 vnode，把根变成 Fragment。 -->
 <template>
-  <div class="stat-dots-row" :class="{ 'stat-dots-row-compact': props.compact }">
-    <n-tooltip v-if="tooltip" trigger="hover" placement="top">
-      <template #trigger>
+  <n-tooltip trigger="hover" placement="top" :disabled="!tooltip">
+    <template #trigger>
+      <div class="stat-dots-row" :class="{ 'stat-dots-row-compact': props.compact }">
         <div class="stat-dots-icon-wrap" :style="iconStyle">
           <n-icon v-if="icon" :size="iconSize">
             <component :is="icon" />
           </n-icon>
           <span v-else class="stat-dots-short-label">{{ shortLabel }}</span>
         </div>
-      </template>
-      {{ tooltip }}
-    </n-tooltip>
 
-    <div v-else class="stat-dots-icon-wrap" :style="iconStyle">
-      <n-icon v-if="icon" :size="iconSize">
-        <component :is="icon" />
-      </n-icon>
-      <span v-else class="stat-dots-short-label">{{ shortLabel }}</span>
-    </div>
+        <div class="stat-dots-track" :style="{ '--stat-dot-color': color }">
+          <span
+            v-for="i in 5"
+            :key="i"
+            class="stat-dot"
+            :class="{ 'stat-dot-filled': i <= filledCount }"
+          />
+        </div>
 
-    <div class="stat-dots-track" :style="{ '--stat-dot-color': color }">
-      <span
-        v-for="i in 5"
-        :key="i"
-        class="stat-dot"
-        :class="{ 'stat-dot-filled': i <= filledCount }"
-      />
-    </div>
-
-    <div class="stat-dots-values">
-      <span class="font-number stat-dots-value-main">{{ displayValue }}</span>
-      <span class="font-number stat-dots-value-percent" :style="{ color }">{{ percent }}%</span>
-    </div>
-  </div>
+        <div class="stat-dots-values">
+          <span class="font-number stat-dots-value-main">{{ displayValue }}</span>
+          <span class="font-number stat-dots-value-percent" :style="{ color }">{{ percent }}%</span>
+        </div>
+      </div>
+    </template>
+    {{ tooltip }}
+  </n-tooltip>
 </template>
 
 <script lang="ts" setup>
@@ -81,7 +76,7 @@ const iconStyle = computed<CSSProperties>(() => ({
 .stat-dots-icon-wrap {
   width: 18px;
   height: 18px;
-  border-radius: 5px; /* 18px 方块的视觉圆角,介于 xs(3) 和 sm(6) 之间 */
+  border-radius: var(--radius-control);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,7 +84,7 @@ const iconStyle = computed<CSSProperties>(() => ({
 }
 
 .stat-dots-short-label {
-  font-size: 9px; /* 小标签字号,低于 --font-size-2xs(10),保留 */
+  font-size: var(--font-size-3xs);
   line-height: 1;
   font-weight: 700;
 }
@@ -111,7 +106,8 @@ const iconStyle = computed<CSSProperties>(() => ({
 }
 
 .theme-light .stat-dot {
-  background: rgba(0, 0, 0, 0.24);
+  /* 冷墨基调，避免纯黑 alpha 在彩色卡面上发灰发脏 */
+  background: rgba(20, 30, 35, 0.2);
 }
 
 .stat-dot-filled {
@@ -150,7 +146,7 @@ const iconStyle = computed<CSSProperties>(() => ({
 }
 
 .stat-dots-row-compact .stat-dots-track {
-  gap: 2px; /* compact 模式 dot 间距,无对应 token */
+  gap: var(--space-2);
 }
 
 .stat-dots-row-compact .stat-dot {

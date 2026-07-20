@@ -9,7 +9,7 @@
         class="input-lolid header-search"
         type="text"
         size="small"
-        placeholder="输入召唤师"
+        placeholder="召唤师名#Tag"
         v-model:value="searchValue"
         @keyup.enter="onClinkSearch"
       >
@@ -36,6 +36,25 @@
       </n-input>
     </div>
     <div class="header-right">
+      <n-popconfirm positive-text="关闭游戏" negative-text="取消" @positive-click="closeLeague">
+        <template #trigger>
+          <n-tooltip trigger="hover">
+            <template #trigger>
+              <n-button
+                quaternary
+                circle
+                class="header-icon-btn close-league-btn"
+                :disabled="!isConnected"
+                :loading="closingLeague"
+              >
+                <n-icon :component="PowerOutline" />
+              </n-button>
+            </template>
+            {{ isConnected ? '关闭游戏客户端' : '游戏客户端未运行' }}
+          </n-tooltip>
+        </template>
+        确定关闭游戏客户端？
+      </n-popconfirm>
       <n-tooltip trigger="hover">
         <template #trigger>
           <n-button quaternary circle class="header-icon-btn" @click="openGithubLink">
@@ -87,14 +106,17 @@ import {
   CloseOutline,
   SunnyOutline,
   MoonOutline,
-  ChevronDownOutline
+  ChevronDownOutline,
+  PowerOutline
 } from '@vicons/ionicons5'
-import { darkTheme } from 'naive-ui'
+import { darkTheme, useMessage } from 'naive-ui'
 import { Window } from '@tauri-apps/api/window'
 import { openUrl } from '@tauri-apps/plugin-opener'
 
 import router from '@renderer/router'
 import { useSettingsStore } from '@renderer/pinia/setting'
+import { useGameState } from '@renderer/composables/useGameState'
+import { closeLeagueByIpc } from '@renderer/services/ipc'
 
 /**
  * 应用顶部导航栏组件
@@ -147,6 +169,34 @@ const onRegionSelect = (key: string): void => {
 
 /** 设置状态管理 Store */
 const settingsStore = useSettingsStore()
+
+/** LCU 连接状态：仅在客户端运行（已连接）时允许点击关闭游戏 */
+const { isConnected } = useGameState()
+
+const message = useMessage()
+
+/** 关闭游戏请求进行中（防重复点击 + 按钮 loading 态） */
+const closingLeague = ref(false)
+
+/**
+ * 关闭游戏客户端（顶栏电源按钮的确认回调）
+ *
+ * 调用后端 close_league：优先 LCU 优雅退出，失败兜底强杀客户端进程链。
+ * 成功/失败均以 message 反馈；连接断开由 game-state-changed 事件自然驱动
+ * UI（按钮变为禁用态），无需在此额外处理。
+ */
+const closeLeague = async (): Promise<void> => {
+  if (closingLeague.value) return
+  closingLeague.value = true
+  try {
+    await closeLeagueByIpc()
+    message.success('已关闭游戏客户端')
+  } catch (e) {
+    message.error(String(e))
+  } finally {
+    closingLeague.value = false
+  }
+}
 
 /**
  * 主题开关状态
@@ -204,12 +254,13 @@ const closeWindow = (): void => {
 }
 </script>
 <style lang="css" scoped>
+/* 不加 backdrop-filter：顶栏底色近实色，模糊毫无视觉贡献；且透明窗口
+   （tauri transparent:true）+ backdrop-filter 会诱发 WebView2 合成层
+   冻结——运行时切主题后顶栏卡死在旧主题配色，整页刷新才恢复 */
 .header-inner {
   width: 100%;
   height: 100%;
   align-items: center;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .header-left {
@@ -224,14 +275,14 @@ const closeWindow = (): void => {
 .logo-badge {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
-  background: rgba(61, 155, 122, 0.18);
-  border: 1px solid rgba(61, 155, 122, 0.28);
-  box-shadow: 0 0 10px rgba(61, 155, 122, 0.18);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--semantic-win) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--semantic-win) 28%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--semantic-win) 18%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 900;
   color: var(--semantic-win);
   flex-shrink: 0;
@@ -241,7 +292,7 @@ const closeWindow = (): void => {
 .header-title {
   color: var(--text-primary);
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--font-size-md);
   letter-spacing: 0.02em;
 }
 
@@ -273,26 +324,22 @@ const closeWindow = (): void => {
 
 /* 聚焦时整框发光 */
 .header-center:focus-within .header-search :deep(.n-input-wrapper) {
-  box-shadow: 0 0 0 2px rgba(61, 155, 122, 0.2);
-  border-color: rgba(61, 155, 122, 0.35) !important;
-}
-
-.theme-light .header-center:focus-within .header-search :deep(.n-input-wrapper) {
-  box-shadow: 0 0 0 2px rgba(45, 138, 108, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--semantic-win) 20%, transparent);
+  border-color: color-mix(in srgb, var(--semantic-win) 35%, transparent) !important;
 }
 
 /* 前缀：大区下拉触发器（小号文字 + 箭头，hover 淡底） */
 .region-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-2);
   height: 20px;
-  padding: 0 4px;
+  padding: 0 var(--space-4);
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
@@ -316,7 +363,7 @@ const closeWindow = (): void => {
 .region-divider {
   width: 1px;
   height: 14px;
-  margin: 0 8px 0 5px;
+  margin: 0 var(--space-8) 0 5px;
   background: var(--glass-border);
   flex-shrink: 0;
 }
@@ -345,6 +392,16 @@ const closeWindow = (): void => {
   transform: scale(1.08);
 }
 
+/* 关闭游戏按钮：hover 用败方红提示这是个"下线"动作；禁用态（未连接）淡化 */
+.close-league-btn:hover:not(:disabled) {
+  color: var(--semantic-loss);
+  background-color: color-mix(in srgb, var(--semantic-loss) 14%, transparent);
+}
+
+.close-league-btn:disabled {
+  opacity: 0.4;
+}
+
 .header-theme-switch {
   margin-right: var(--space-8);
 }
@@ -356,8 +413,8 @@ const closeWindow = (): void => {
 }
 
 .window-control-btn {
-  padding: 6px 12px;
-  font-size: 14px;
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--font-size-md);
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
   height: 100%;
@@ -382,7 +439,7 @@ const closeWindow = (): void => {
 }
 
 .close-btn:hover {
-  background-color: rgba(196, 92, 92, 0.75);
+  background-color: color-mix(in srgb, var(--semantic-loss) 75%, transparent);
   color: white;
 }
 

@@ -89,21 +89,33 @@ export function validateAttribution(rawJson: string, snapshot: MatchSnapshot): V
         error: `verdict[${i}].evidenceMetrics length ${v.evidenceMetrics.length} < 3`
       }
     }
-    for (let j = 0; j < v.evidenceMetrics.length; j++) {
-      const m = v.evidenceMetrics[j]
-      if (!m || typeof m.metric !== 'string' || typeof m.value !== 'number') {
-        return {
-          ok: false,
-          error: `verdict[${i}].evidenceMetrics[${j}] must have {metric:string, value:number}`
+    // 逐条清洗而非硬毙：真机复现模型偶发把 value 写成 "36.3%" 字符串，
+    // 一条坏证据不该废掉整份多 verdict 归因（连重试都会同样失败 → 复盘静默不可用）。
+    // 字符串数字/百分比 coerce 成 number；救不动的摘除；全摘光的 verdict 在下方剔除。
+    v.evidenceMetrics = v.evidenceMetrics
+      .map(m => {
+        if (!m || typeof m.metric !== 'string') return null
+        // 类型上 value 是 number，但这里是未信任的模型 JSON——按 unknown 处理
+        const raw: unknown = (m as { value?: unknown }).value
+        if (typeof raw === 'number' && Number.isFinite(raw)) return m
+        if (typeof raw === 'string') {
+          const parsedValue = Number(raw.replace(/[%,，\s]/g, ''))
+          if (Number.isFinite(parsedValue)) return { ...m, value: parsedValue }
         }
-      }
-    }
+        return null
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null)
     if (!Array.isArray(v.mitigatingFactors)) {
       return {
         ok: false,
         error: `verdict[${i}].mitigatingFactors must be an array (use [] when empty)`
       }
     }
+  }
+  // 清洗后证据被摘光的 verdict 整条剔除（无数字支撑的判定不给用户看）
+  candidate.verdicts = candidate.verdicts.filter(v => (v as Verdict).evidenceMetrics.length > 0)
+  if (candidate.verdicts.length === 0) {
+    return { ok: false, error: 'all verdicts dropped after evidence sanitization' }
   }
 
   // ─── Layer 3: data-grounding（清洗，不再硬毙） ───
@@ -130,6 +142,22 @@ export function validateAttribution(rawJson: string, snapshot: MatchSnapshot): V
     v.mitigatingFactors = v.mitigatingFactors.filter(m =>
       isFactorGrounded(m.factor, v, playerSnap, result, snapshot)
     )
+  }
+
+  // ─── Layer 4: 确定性回填（快照事实覆盖模型输出） ───
+  // 英雄/分路/胜负方是快照里的既有事实，由 TS 写入而非信任模型——Stage 2 锐评
+  // 曾因缺这些字段把下路写成"中路核弹手"、把败方塞进"谁尽力了"（真机截图复现）。
+  for (const v of result.verdicts) {
+    const playerSnap = snapshot.players.find((p: any) => p.participantId === v.participantId) as any
+    if (!playerSnap) {
+      v.champion = undefined
+      v.teamPosition = undefined
+      v.teamResult = undefined
+      continue
+    }
+    v.champion = playerSnap.champion
+    v.teamPosition = playerSnap.teamPosition
+    v.teamResult = playerSnap.win ? '胜方' : '败方'
   }
 
   return { ok: true, value: result }

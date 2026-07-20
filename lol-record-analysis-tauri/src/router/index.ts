@@ -30,6 +30,13 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: '加载中' }
   },
   {
+    // 开发用：情报卡动画演示，无导航入口，仅 #/IntelDemo 直达
+    path: '/IntelDemo',
+    name: 'IntelDemo',
+    component: () => import('@renderer/views/IntelDemo.vue'),
+    meta: { title: '情报卡演示' }
+  },
+  {
     path: '/Settings',
     name: 'Settings',
     redirect: '/Settings/Automation',
@@ -59,6 +66,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'PlayerNotes',
         component: () => import('@renderer/views/settings/PlayerNotes.vue'),
         meta: { title: '我标记过的人' }
+      },
+      {
+        path: '/Settings/DataSync',
+        name: 'DataSync',
+        component: () => import('@renderer/views/settings/DataSync.vue'),
+        meta: { title: '数据与同步' }
       },
       {
         path: '/Settings/About',

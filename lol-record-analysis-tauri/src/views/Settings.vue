@@ -41,7 +41,8 @@ import {
   AlertCircleOutline,
   SettingsOutline,
   PricetagOutline,
-  BookmarksOutline
+  BookmarksOutline,
+  CloudOutline
 } from '@vicons/ionicons5'
 
 const collapsed = ref(false)
@@ -81,6 +82,11 @@ const menuOptions = [
     label: '我标记过的人',
     key: 'PlayerNotes',
     icon: renderIcon(BookmarksOutline)
+  },
+  {
+    label: '数据与同步',
+    key: 'DataSync',
+    icon: renderIcon(CloudOutline)
   },
   // {
   //     label: 'AI能力',
@@ -131,6 +137,6 @@ const menuOptions = [
   background: rgba(61, 155, 122, 0.13) !important;
   color: var(--semantic-win) !important;
   font-weight: 700 !important;
-  border-radius: 8px !important;
+  border-radius: var(--radius-md) !important;
 }
 </style>

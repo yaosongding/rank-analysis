@@ -68,6 +68,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol("asset", move |_ctx, request, responder| {
             let path = request.uri().path();
             // path is like /champion/123
@@ -146,12 +147,26 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             command::session::get_session_data,
             command::fandom::update_fandom_data,
             command::fandom::get_aram_balance,
+            command::fandom::get_champion_patch_note,
+            command::opgg::update_opgg_data,
+            command::opgg::get_champion_meta,
+            command::opgg::get_lane_counters,
+            command::opgg::get_opgg_status,
             command::system::relaunch_as_admin,
             command::system::get_device_id,
             command::launcher::launch_league,
+            command::launcher::close_league,
             command::sgp::get_sgp_regions,
             command::sgp::get_current_sgp_region,
             command::sgp::get_sgp_match_history_by_name,
+            command::cloud_sync::cloud_pull_notes,
+            command::cloud_sync::cloud_push_notes,
+            command::cloud_sync::read_text_file,
+            command::cloud_sync::cloud_pull_config,
+            command::cloud_sync::cloud_push_config,
+            command::cloud_sync::get_cloud_config_snapshot,
+            command::cloud_sync::apply_config_snapshot,
+            command::cloud_sync::export_backup,
         ]);
 
     #[cfg(debug_assertions)]
@@ -170,7 +185,20 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     }
 
     app_builder = app_builder.setup(move |app| {
+        // 配置变更 → 通知前端调度防抖云推送。只发云同步口径内的键:
+        // 黑名单键(含 configLastSyncAt 这类同步自身写的标记)不发,否则
+        // 每次同步落盘标记又触发下一轮同步,永不收敛。
+        // 覆盖两条写路径:前端 putConfigByIpc 与 Rust 直写(如 save_tag_configs)。
+        let config_event_handle = app.handle().clone();
+        lol_record_analysis_app_lib::config::register_on_change_callback(move |key, _| {
+            if lol_record_analysis_app_lib::config::allowed_in_cloud(key) {
+                use tauri::Emitter;
+                let _ = config_event_handle.emit("config-changed", key);
+            }
+        });
+
         // 启动自动化系统
+        let warm_handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
             log::info!("Starting automation system...");
             tokio::spawn(async {
@@ -179,6 +207,25 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
             // Initialize asset caches
             asset_api::init().await;
+
+            // OP.GG 数据预热：失败仅告警，不阻塞启动（对局页/AI 会按需再触发）。
+            let opgg_state = warm_handle.state::<AppState>();
+            for mode in ["ranked", "aram"] {
+                match lol_record_analysis_app_lib::command::opgg::ensure_opgg_snapshot(
+                    &opgg_state,
+                    mode,
+                )
+                .await
+                {
+                    Ok((snap, stale)) => log::info!(
+                        "OP.GG warmup {}: patch {}, stale={}",
+                        mode,
+                        snap.patch,
+                        stale
+                    ),
+                    Err(e) => log::warn!("OP.GG warmup {} failed: {}", mode, e),
+                }
+            }
         });
 
         // 启动游戏状态监听器
